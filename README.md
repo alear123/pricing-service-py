@@ -2,6 +2,7 @@
 
 Microservicio de **precios y cupones de descuento** para una plataforma de e-commerce basada en microservicios. Desarrollado con **Python + FastAPI**, persiste en **MongoDB** y se comunica con el resto del ecosistema de forma **asíncrona mediante RabbitMQ** y de forma **síncrona vía HTTP**.
 
+[![Tests](https://github.com/alear123/pricing-service-py/actions/workflows/tests.yml/badge.svg)](https://github.com/alear123/pricing-service-py/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
@@ -243,7 +244,7 @@ python main.py
 
 ## Tests
 
-Tests unitarios de la lógica de negocio (`services`) y de la capa HTTP (`controllers`). MongoDB, RabbitMQ, AuthGo y CartGo se reemplazan por mocks, por lo que **no se necesita levantar ninguna dependencia**.
+Tests unitarios de la lógica de negocio (`services`) y de la capa HTTP (`controllers`). MongoDB, RabbitMQ, AuthGo y CartGo se reemplazan por mocks, por lo que **no se necesita levantar ninguna dependencia**. Se ejecutan automáticamente en cada push con **GitHub Actions** (Python 3.11 y 3.13).
 
 ```bash
 pip install -r requirements-dev.txt
