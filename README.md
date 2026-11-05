@@ -241,6 +241,24 @@ python main.py
 
 ---
 
+## Tests
+
+Tests unitarios de la lógica de negocio (`services`) y de la capa HTTP (`controllers`). MongoDB, RabbitMQ, AuthGo y CartGo se reemplazan por mocks, por lo que **no se necesita levantar ninguna dependencia**.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Qué cubren:
+- Movimientos de precio `SET` / `INCR` / `DECR` y sus reglas (no negativos, no decrementar sin precio previo, auditoría).
+- Cálculo de descuentos porcentuales y fijos (el descuento fijo nunca supera el subtotal).
+- Validaciones de cupones: vigencia, límite de usos, duplicados y un solo cupón por carrito.
+- Procesamiento del evento de orden creada y los eventos resultantes.
+- Autorización por permisos (`admin`) y traducción de errores de negocio a HTTP 400.
+
+---
+
 ## Decisiones de diseño
 
 - **Arquitectura en capas** (controller → service → repository): separa la capa HTTP, la lógica de negocio y la persistencia.
@@ -252,7 +270,7 @@ python main.py
 
 ## Mejoras futuras
 
-- Tests unitarios y de integración, con CI en GitHub Actions.
+- Tests de integración contra MongoDB y RabbitMQ reales (por ejemplo, con Testcontainers).
 - Reemplazar `print` por `logging` estructurado.
 - Hacer atómica la validación del límite de usos de un cupón, para evitar que dos órdenes simultáneas lo superen.
 - Usar `find_one_and_delete` al consumir la reserva pendiente.
