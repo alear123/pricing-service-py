@@ -1,0 +1,25 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Variables de entorno (usar .env.example como plantilla)
+.env
+.env.*
+!.env.example
+
+# IDEs y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

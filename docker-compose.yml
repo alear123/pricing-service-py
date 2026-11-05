@@ -1,0 +1,20 @@
+services:
+  coupon-service:
+    build: .
+    container_name: coupon_microservice
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - MONGODB_URI=mongodb://ec-mongo:27017
+      - MONGODB_DB_NAME=coupons_db
+      - RABBITMQ_URL=amqp://guest:guest@ec-rabbitmq:5672/
+      - RABBITMQ_EXCHANGE=amq.direct
+      - AUTHGO_URL=http://prod-auth-go:3000
+    networks:
+      - ecommerce-net
+    restart: always
+
+networks:
+  ecommerce-net:
+    external: true
