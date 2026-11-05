@@ -11,7 +11,7 @@ WORKDIR /app
 # 4. Instalar dependencias del sistema necesarias (si fuera necesario para compilaciones)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && rm -rf /lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # 5. Copiar primero el requirements.txt para aprovechar la caché de capas de Docker
 COPY requirements.txt /app/
