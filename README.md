@@ -206,11 +206,42 @@ Content-Type: application/json
 
 ## Cómo ejecutarlo
 
-### Requisitos previos
+### Ecosistema completo con un solo comando (recomendado)
 
-Este servicio depende de la infraestructura del ecosistema e-commerce (MongoDB, RabbitMQ, AuthGo y CartGo). Primero hay que levantarla siguiendo las instrucciones del repositorio [nmarsollier/ecommerce](https://github.com/nmarsollier/ecommerce). Eso crea la red Docker `ecommerce-net`, a la que este servicio se conecta.
+`docker-compose.ecosystem.yml` levanta todo lo necesario para probar el servicio de punta a punta: MongoDB, RabbitMQ, los servicios de la cátedra (auth, catálogo, carrito y órdenes), construidos desde sus repositorios públicos, y este microservicio.
 
-### Con Docker (recomendado)
+```bash
+docker compose -f docker-compose.ecosystem.yml up -d --build
+```
+
+La primera vez tarda varios minutos porque compila los servicios de la cátedra. Después, el proyecto `ecommerce-demo` se inicia y detiene desde Docker Desktop con un clic.
+
+Luego, para crear un usuario admin y uno común y obtener sus tokens (en Windows):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-demo.ps1
+```
+
+| Servicio | URL |
+|---|---|
+| Pricing Service (Swagger) | http://localhost:8000/docs |
+| Front de la cátedra (login, catálogo, carrito, checkout) | http://localhost:4200 |
+| RabbitMQ Management | http://localhost:15672 (`guest` / `guest`) |
+| AuthGo / Catalog / Cart / Orders | http://localhost:3000 / 3002 / 3003 / 3004 |
+
+### Integrado a un ecosistema ya levantado
+
+Si el ecosistema ya está corriendo según las instrucciones del repositorio [nmarsollier/ecommerce](https://github.com/nmarsollier/ecommerce), el servicio se conecta a la red Docker `ecommerce-net`, que se crea y vincula a mano:
+
+```bash
+docker network create ecommerce-net
+docker network connect ecommerce-net ec-mongo
+docker network connect ecommerce-net ec-rabbitmq
+docker network connect ecommerce-net prod-auth-go
+docker network connect ecommerce-net prod-cartgo-go
+```
+
+Y después:
 
 ```bash
 docker compose up --build
