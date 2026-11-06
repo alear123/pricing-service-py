@@ -1,0 +1,161 @@
+# Ecosistema completo para demo local: infraestructura + servicios de la cátedra + Pricing Service.
+# Uso:   docker compose -f docker-compose.ecosystem.yml up -d --build
+# Los servicios de la cátedra se construyen desde sus repositorios públicos (github.com/nmarsollier),
+# con el mismo Dockerfile.prod que publica cada repo, escrito inline (Compose en Windows no resuelve
+# contextos git remotos). La configuración se sobreescribe por variables de entorno.
+
+name: ecommerce-demo
+
+x-go-service-env: &go-env
+  MONGO_URL: mongodb://mongo:27017
+  RABBIT_URL: amqp://guest:guest@rabbitmq:5672
+  AUTH_SERVICE_URL: http://auth:3000
+  CATALOG_SERVICE_URL: http://catalog:3002
+  FLUENT_URL: localhost:24224
+
+x-depends-on-infra: &depends-on-infra
+  mongo:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+
+services:
+  # ---------- Infraestructura ----------
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13.6-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # UI de administración: http://localhost:15672 (guest / guest)
+    healthcheck:
+      # check_port_connectivity (y no ping): espera a que el puerto 5672 acepte conexiones
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  # ---------- Servicios de la cátedra ----------
+  auth:
+    build:
+      context: ./scripts
+      dockerfile_inline: |
+        FROM golang:1.22.6-bullseye
+        WORKDIR /go/src/github.com/nmarsollier/authgo
+        RUN curl -L https://github.com/nmarsollier/authgo/archive/refs/heads/master.tar.gz | tar xz --strip=1
+        RUN go install /go/src/github.com/nmarsollier/authgo
+        EXPOSE 3000
+        CMD ["authgo"]
+    environment:
+      <<: *go-env
+    ports:
+      - "3000:3000"
+    depends_on: *depends-on-infra
+    restart: unless-stopped
+
+  catalog:
+    build:
+      context: ./scripts
+      dockerfile_inline: |
+        FROM golang:1.22.6-bullseye
+        WORKDIR /go/src/github.com/nmarsollier/cataloggo
+        RUN curl -L https://github.com/nmarsollier/cataloggo/archive/refs/heads/master.tar.gz | tar xz --strip=1
+        RUN go install /go/src/github.com/nmarsollier/cataloggo
+        EXPOSE 3002
+        CMD ["cataloggo"]
+    environment:
+      <<: *go-env
+    ports:
+      - "3002:3002"
+    depends_on: *depends-on-infra
+    restart: unless-stopped
+
+  cart:
+    build:
+      context: ./scripts
+      dockerfile_inline: |
+        FROM golang:1.22.6-bullseye
+        WORKDIR /go/src/github.com/nmarsollier/cartgo
+        RUN curl -L https://github.com/nmarsollier/cartgo/archive/refs/heads/master.tar.gz | tar xz --strip=1
+        RUN go install /go/src/github.com/nmarsollier/cartgo
+        EXPOSE 3003
+        CMD ["cartgo"]
+    environment:
+      <<: *go-env
+      PORT: "3003"
+    ports:
+      - "3003:3003"
+    depends_on: *depends-on-infra
+    restart: unless-stopped
+
+  orders:
+    build:
+      context: ./scripts
+      dockerfile_inline: |
+        FROM golang:1.22.6-bullseye
+        WORKDIR /go/src/github.com/nmarsollier/ordersgo
+        RUN curl -L https://github.com/nmarsollier/ordersgo/archive/refs/heads/master.tar.gz | tar xz --strip=1
+        RUN go install /go/src/github.com/nmarsollier/ordersgo
+        EXPOSE 3004
+        CMD ["ordersgo"]
+    environment:
+      <<: *go-env
+    ports:
+      - "3004:3004"
+    depends_on: *depends-on-infra
+    restart: unless-stopped
+
+  # Front de la cátedra: http://localhost:4200
+  # Corre en el navegador y llama a los servicios por localhost:3000/3002/3003/3004 (publicados arriba).
+  # No incluye el servicio de imágenes (3001): los artículos se pueden crear sin foto.
+  web:
+    build:
+      context: ./scripts
+      dockerfile_inline: |
+        FROM node:22-bullseye AS build
+        WORKDIR /app
+        RUN curl -L https://github.com/nmarsollier/ecommerce_api_client_react/archive/refs/heads/master.tar.gz | tar xz --strip=1
+        RUN npm install --silent
+        RUN npm run build
+
+        FROM nginx:alpine
+        COPY --from=build /app/build /usr/share/nginx/html
+        EXPOSE 80
+        CMD ["nginx", "-g", "daemon off;"]
+    ports:
+      - "4200:80"
+    depends_on:
+      - auth
+      - catalog
+      - cart
+      - orders
+    restart: unless-stopped
+
+  # ---------- Este microservicio ----------
+  pricing:
+    build: .
+    environment:
+      PORT: "8000"
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB_NAME: coupons_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: amq.direct
+      AUTHGO_URL: http://auth:3000
+      CARTGO_URL: http://cart:3003
+    ports:
+      - "8000:8000"
+    depends_on: *depends-on-infra
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
