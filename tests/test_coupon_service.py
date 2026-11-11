@@ -231,13 +231,25 @@ async def test_orden_con_cupon_que_alcanzo_el_limite(mocks):
     coupon_repo, _, _, publish = mocks
     coupon_repo.get_and_delete_pending_coupon.return_value = {"coupon_code": "PROMO"}
     coupon_repo.get_by_code.return_value = make_coupon(usageLimit=3)
-    coupon_repo.count_usages.return_value = 3
+    coupon_repo.try_consume_usage.return_value = False  # Mongo no encontró lugar libre
 
     await coupon_service.process_order_created_usage(ORDER)
 
     coupon_repo.register_usage.assert_not_awaited()
     assert publish.await_args.kwargs["routing_key"] == "coupon.failed"
     assert publish.await_args.kwargs["message_data"]["status"] == "LIMIT_EXCEEDED"
+
+
+async def test_orden_libera_el_uso_si_falla_el_registro(mocks):
+    coupon_repo, _, _, publish = mocks
+    coupon_repo.get_and_delete_pending_coupon.return_value = {"coupon_code": "PROMO"}
+    coupon_repo.try_consume_usage.return_value = True
+    coupon_repo.register_usage.side_effect = RuntimeError("Mongo caído")
+
+    await coupon_service.process_order_created_usage(ORDER)
+
+    coupon_repo.release_usage.assert_awaited_once_with("PROMO")
+    assert publish.await_args.kwargs["message_data"]["status"] == "ERROR"
 
 
 async def test_orden_sin_cart_id_se_descarta(mocks):

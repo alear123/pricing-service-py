@@ -219,23 +219,21 @@ class CouponService:
             )
             return
 
-        # 3. Validar si superó el número máximo de usos (usageLimit)
+        # 3. Consumir un uso de forma atómica (chequeo de límite + incremento en una sola operación)
         usage_limit = coupon.get("usageLimit")
-        if usage_limit is not None:
-            current_usages = await coupon_repository.count_usages(coupon["_id"])
-            if current_usages >= usage_limit:
-                print(f" El cupón '{coupon_code}' superó el límite máximo de usos ({current_usages}/{usage_limit}).")
-                await publish_event(
-                    routing_key="coupon.failed",
-                    message_data={
-                        "status": "LIMIT_EXCEEDED",
-                        "orderId": order_id,
-                        "cartId": cart_id,
-                        "couponCode": coupon_code,
-                        "reason": f"El cupón alcanzó su límite máximo de usos ({usage_limit})."
-                    }
-                )
-                return
+        if not await coupon_repository.try_consume_usage(coupon["couponCode"]):
+            print(f" El cupón '{coupon_code}' alcanzó el límite máximo de usos ({usage_limit}).")
+            await publish_event(
+                routing_key="coupon.failed",
+                message_data={
+                    "status": "LIMIT_EXCEEDED",
+                    "orderId": order_id,
+                    "cartId": cart_id,
+                    "couponCode": coupon_code,
+                    "reason": f"El cupón alcanzó su límite máximo de usos ({usage_limit})."
+                }
+            )
+            return
 
         # 4. Registrar uso e informar éxito
         try:
@@ -263,6 +261,8 @@ class CouponService:
 
         except Exception as e:
             print(f" Error al registrar uso de cupón para la orden '{order_id}': {e}")
+            # El uso no quedó registrado: devolvemos el lugar consumido en el paso 3
+            await coupon_repository.release_usage(coupon["couponCode"])
             await publish_event(
                 routing_key="coupon.failed",
                 message_data={

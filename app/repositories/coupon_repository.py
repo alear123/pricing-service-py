@@ -42,6 +42,7 @@ class CouponRepository:
         doc = coupon_data.model_dump()
         doc["couponCode"] = doc["couponCode"].strip()
         doc["creationDate"] = datetime.utcnow()
+        doc["usedCount"] = 0
 
         result = await self.coupons_col.insert_one(doc)
         if not result.inserted_id:
@@ -72,6 +73,32 @@ class CouponRepository:
             raise ValueError("El 'coupon_id' es obligatorio para contar los usos.")
 
         return await self.usages_col.count_documents({"couponId": str(coupon_id)})
+
+    async def try_consume_usage(self, coupon_code: str) -> bool:
+        """
+        Consume un uso del cupón de forma atómica: MongoDB solo incrementa
+        'usedCount' si todavía no alcanzó 'usageLimit' (o si no tiene límite).
+        Chequeo e incremento ocurren en una sola operación, así que dos órdenes
+        simultáneas no pueden superar el límite. Devuelve False si no quedan usos.
+        """
+        result = await self.coupons_col.find_one_and_update(
+            {
+                "couponCode": coupon_code,
+                "$or": [
+                    {"usageLimit": None},
+                    {"$expr": {"$lt": [{"$ifNull": ["$usedCount", 0]}, "$usageLimit"]}},
+                ],
+            },
+            {"$inc": {"usedCount": 1}},
+        )
+        return result is not None
+
+    async def release_usage(self, coupon_code: str) -> None:
+        """Devuelve un uso consumido (si falla el registro posterior)."""
+        await self.coupons_col.update_one(
+            {"couponCode": coupon_code, "usedCount": {"$gt": 0}},
+            {"$inc": {"usedCount": -1}},
+        )
 
     async def is_applied_to_cart(self, cart_id: str) -> bool:
         if not cart_id or not isinstance(cart_id, str):
