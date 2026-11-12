@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class MovType(str, Enum):
     SET = "SET"
@@ -19,5 +19,4 @@ class MovPricingInDB(MovPricingCreate):
     id: str = Field(..., alias="_id")
     creationDate: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

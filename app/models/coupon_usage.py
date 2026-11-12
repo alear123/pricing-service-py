@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class CouponUsageCreate(BaseModel):
     couponCode: str
@@ -10,5 +10,4 @@ class CouponUsageInDB(BaseModel):
     cartId: str
     usedOn: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

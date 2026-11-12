@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PORT: int = 8000
@@ -11,8 +11,6 @@ class Settings(BaseSettings):
     AUTHGO_URL: str = "http://prod-auth-go:3000"
     CARTGO_URL: str = "http://prod-cartgo-go:3003"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

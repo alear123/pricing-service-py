@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class PricingBase(BaseModel):
     articleId: str
@@ -13,5 +13,4 @@ class PricingInDB(PricingBase):
     creationDate: datetime
     updateDate: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
